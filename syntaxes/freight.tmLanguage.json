@@ -1,0 +1,116 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Freight Manifest",
+  "scopeName": "source.toml.freight",
+  "patterns": [
+    {
+      "include": "#comments"
+    },
+    {
+      "include": "#sections"
+    },
+    {
+      "include": "#keys"
+    },
+    {
+      "include": "#strings"
+    },
+    {
+      "include": "#numbers"
+    },
+    {
+      "include": "#booleans"
+    }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.number-sign.toml.freight",
+          "match": "#.*$"
+        }
+      ]
+    },
+    "sections": {
+      "patterns": [
+        {
+          "name": "meta.section.array.toml.freight",
+          "match": "^(\\s*)(\\[\\[)([^\\]]+)(\\]\\])",
+          "captures": {
+            "2": {
+              "name": "punctuation.definition.section.begin.toml.freight"
+            },
+            "3": {
+              "name": "entity.name.section.array.toml.freight"
+            },
+            "4": {
+              "name": "punctuation.definition.section.end.toml.freight"
+            }
+          }
+        },
+        {
+          "name": "meta.section.toml.freight",
+          "match": "^(\\s*)(\\[)([^\\]]+)(\\])",
+          "captures": {
+            "2": {
+              "name": "punctuation.definition.section.begin.toml.freight"
+            },
+            "3": {
+              "name": "entity.name.section.toml.freight"
+            },
+            "4": {
+              "name": "punctuation.definition.section.end.toml.freight"
+            }
+          }
+        }
+      ]
+    },
+    "keys": {
+      "patterns": [
+        {
+          "name": "support.type.property-name.toml.freight",
+          "match": "^\\s*([A-Za-z0-9_.-]+)\\s*(=)",
+          "captures": {
+            "1": {
+              "name": "variable.other.key.toml.freight"
+            },
+            "2": {
+              "name": "keyword.operator.assignment.toml.freight"
+            }
+          }
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.toml.freight",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [
+            {
+              "name": "constant.character.escape.toml.freight",
+              "match": "\\\\."
+            }
+          ]
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.toml.freight",
+          "match": "\\b[0-9]+(\\.[0-9]+)?\\b"
+        }
+      ]
+    },
+    "booleans": {
+      "patterns": [
+        {
+          "name": "constant.language.boolean.toml.freight",
+          "match": "\\b(true|false)\\b"
+        }
+      ]
+    }
+  }
+}

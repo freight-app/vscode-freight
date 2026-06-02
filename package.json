@@ -1,0 +1,290 @@
+{
+  "name": "vscode-freight",
+  "displayName": "Freight",
+  "description": "VS Code support for freight.toml, Freight tasks, and freight lsp.",
+  "version": "0.1.0",
+  "publisher": "freight",
+  "license": "Apache-2.0",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Build Tools",
+    "Linters"
+  ],
+  "activationEvents": [
+    "onLanguage:freight-manifest",
+    "workspaceContains:freight.toml",
+    "onDebugResolve:freight",
+    "onCommand:freight.restartLanguageServer",
+    "onCommand:freight.generateCompileCommands",
+    "onCommand:freight.run",
+    "onCommand:freight.debug"
+  ],
+  "main": "./src/extension.js",
+  "scripts": {
+    "check": "bun build src/extension.js --target=node --external vscode --external vscode-languageclient/node --outdir /tmp/vscode-freight-check",
+    "package": "bun run check"
+  },
+  "contributes": {
+    "languages": [
+      {
+        "id": "freight-manifest",
+        "aliases": [
+          "Freight Manifest",
+          "freight.toml"
+        ],
+        "filenames": [
+          "freight.toml"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "freight-manifest",
+        "scopeName": "source.toml.freight",
+        "path": "./syntaxes/freight.tmLanguage.json"
+      }
+    ],
+    "taskDefinitions": [
+      {
+        "type": "freight",
+        "required": [
+          "command"
+        ],
+        "properties": {
+          "command": {
+            "type": "string",
+            "description": "Freight command to run."
+          },
+          "args": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Arguments passed to the Freight command."
+          }
+        }
+      }
+    ],
+    "configuration": {
+      "title": "Freight",
+      "properties": {
+        "freight.executablePath": {
+          "type": "string",
+          "default": "freight",
+          "description": "Path to the freight executable."
+        },
+        "freight.lsp.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Start freight lsp for freight.toml and source-file passthrough support."
+        },
+        "freight.lsp.clangdPath": {
+          "type": "string",
+          "default": "clangd",
+          "description": "Path to clangd used by freight lsp for C-family source files."
+        },
+        "freight.lsp.fortlsPath": {
+          "type": "string",
+          "default": "fortls",
+          "description": "Path to fortls used by freight lsp for Fortran source files."
+        },
+        "freight.lsp.asmLspPath": {
+          "type": "string",
+          "default": "asm-lsp",
+          "description": "Path to asm-lsp used by freight lsp for assembly source files."
+        },
+        "freight.lsp.profile": {
+          "type": "string",
+          "default": "dev",
+          "description": "Freight profile used when freight lsp refreshes compile_commands.json."
+        },
+        "freight.lsp.enableClangd": {
+          "type": "boolean",
+          "default": true,
+          "description": "Allow freight lsp to start clangd."
+        },
+        "freight.lsp.enableFortls": {
+          "type": "boolean",
+          "default": true,
+          "description": "Allow freight lsp to start fortls."
+        },
+        "freight.lsp.enableAsmLsp": {
+          "type": "boolean",
+          "default": true,
+          "description": "Allow freight lsp to start asm-lsp."
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "freight.restartLanguageServer",
+        "title": "Freight: Restart Language Server"
+      },
+      {
+        "command": "freight.generateCompileCommands",
+        "title": "Freight: Generate compile_commands.json"
+      },
+      {
+        "command": "freight.run",
+        "title": "Freight: Run"
+      },
+      {
+        "command": "freight.debug",
+        "title": "Freight: Debug"
+      }
+    ],
+    "debuggers": [
+      {
+        "type": "freight",
+        "label": "Freight",
+        "configurationAttributes": {
+          "launch": {
+            "required": [
+              "request",
+              "name"
+            ],
+            "properties": {
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "run",
+                  "debug"
+                ],
+                "default": "run",
+                "description": "Run with freight run, or build debug profile and launch freight debug."
+              },
+              "release": {
+                "type": "boolean",
+                "default": false,
+                "description": "Pass --release to freight run."
+              },
+              "package": {
+                "type": "string",
+                "description": "Workspace package passed as -p."
+              },
+              "bin": {
+                "type": "string",
+                "description": "Binary passed as --bin for freight run, or positional binary for freight debug."
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "default": [],
+                "description": "Arguments passed to the program after --."
+              },
+              "features": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "default": [],
+                "description": "Features passed to freight run."
+              },
+              "noDefaultFeatures": {
+                "type": "boolean",
+                "default": false,
+                "description": "Pass --no-default-features to freight run."
+              },
+              "debugger": {
+                "type": "string",
+                "description": "Debugger passed to freight debug --debugger."
+              },
+              "cwd": {
+                "type": "string",
+                "default": "${workspaceFolder}",
+                "description": "Working directory for freight."
+              }
+            }
+          }
+        },
+        "initialConfigurations": [
+          {
+            "name": "Freight: Run",
+            "type": "freight",
+            "request": "launch",
+            "mode": "run",
+            "cwd": "${workspaceFolder}",
+            "args": []
+          },
+          {
+            "name": "Freight: Run Release",
+            "type": "freight",
+            "request": "launch",
+            "mode": "run",
+            "release": true,
+            "cwd": "${workspaceFolder}",
+            "args": []
+          },
+          {
+            "name": "Freight: Debug",
+            "type": "freight",
+            "request": "launch",
+            "mode": "debug",
+            "cwd": "${workspaceFolder}",
+            "args": []
+          }
+        ]
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "freight.restartLanguageServer"
+        },
+        {
+          "command": "freight.generateCompileCommands"
+        },
+        {
+          "command": "freight.run"
+        },
+        {
+          "command": "freight.debug"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "workbench.action.tasks.build",
+        "key": "ctrl+shift+b",
+        "when": "resourceFilename == freight.toml"
+      }
+    ],
+    "problemMatchers": [
+      {
+        "name": "freight",
+        "owner": "freight",
+        "fileLocation": [
+          "relative",
+          "${workspaceFolder}"
+        ],
+        "pattern": [
+          {
+            "regexp": "^(error|warning):\\s+(.*)$",
+            "severity": 1,
+            "message": 2
+          },
+          {
+            "regexp": "^\\s+([^:]+):(\\d+):(\\d+)\\s+(.*)$",
+            "file": 1,
+            "line": 2,
+            "column": 3,
+            "message": 4
+          }
+        ]
+      }
+    ]
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@types/vscode": "^1.90.0"
+  }
+}

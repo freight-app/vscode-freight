@@ -1,0 +1,260 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "freight.toml",
+  "description": "Schema for Freight package and workspace manifests.",
+  "type": "object",
+  "properties": {
+    "workspace": {
+      "type": "object",
+      "description": "Workspace root manifest. Workspace roots contain member paths and do not need a package section.",
+      "required": ["members"],
+      "properties": {
+        "members": {
+          "type": "array",
+          "description": "Relative paths to member package directories.",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "package": {
+      "type": "object",
+      "description": "Package metadata used by Freight builds and the registry.",
+      "required": ["name", "version"],
+      "properties": {
+        "name": { "type": "string", "description": "Package name." },
+        "version": { "type": "string", "description": "Package SemVer version." },
+        "authors": { "type": "array", "items": { "type": "string" } },
+        "description": { "type": "string" },
+        "license": { "type": "string", "description": "SPDX license expression." },
+        "readme": { "type": "string", "description": "Relative path to README content." },
+        "repository": { "type": "string", "description": "Source repository or project URL." },
+        "keywords": { "type": "array", "items": { "type": "string" } },
+        "supports": { "type": "string", "description": "Boolean platform support expression." },
+        "provides": {
+          "type": "array",
+          "description": "Virtual slots provided by this package, such as blas or cxx-stdlib.",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": true
+    },
+    "language": {
+      "type": "object",
+      "description": "Language sections keyed by language id, for example language.c, language.cpp, or language.fortran.",
+      "patternProperties": {
+        "^(c|cpp|cxx|fortran|f|ada|d|cuda|hip|opencl|objc|objcpp|asm|ispc|zig)$": {
+          "$ref": "#/definitions/languageSettings"
+        }
+      },
+      "additionalProperties": { "$ref": "#/definitions/languageSettings" }
+    },
+    "lib": { "$ref": "#/definitions/libTarget" },
+    "bin": {
+      "type": "array",
+      "description": "Executable targets.",
+      "items": { "$ref": "#/definitions/binTarget" }
+    },
+    "dependencies": { "$ref": "#/definitions/dependencyTable" },
+    "build-dependencies": { "$ref": "#/definitions/dependencyTable" },
+    "dev-dependencies": { "$ref": "#/definitions/dependencyTable" },
+    "features": {
+      "type": "object",
+      "description": "Feature graph. Feature values are dependency or feature names activated together.",
+      "additionalProperties": {
+        "type": "array",
+        "items": { "type": "string" }
+      }
+    },
+    "compiler": { "$ref": "#/definitions/compiler" },
+    "profile": {
+      "type": "object",
+      "description": "Named build profiles.",
+      "additionalProperties": { "$ref": "#/definitions/profile" },
+      "properties": {
+        "dev": { "$ref": "#/definitions/profile" },
+        "release": { "$ref": "#/definitions/profile" },
+        "bench": { "$ref": "#/definitions/profile" }
+      }
+    },
+    "target": { "$ref": "#/definitions/target" },
+    "formatter": { "$ref": "#/definitions/toolSettings" },
+    "linter": { "$ref": "#/definitions/toolSettings" },
+    "os": {
+      "type": "object",
+      "description": "OS-conditional overlays.",
+      "patternProperties": {
+        "^(unix|bsd|linux|windows|macos|freebsd|openbsd|netbsd|dragonfly|android|ios|solaris|illumos)$": {
+          "$ref": "#/definitions/conditionalSources"
+        }
+      },
+      "additionalProperties": { "$ref": "#/definitions/conditionalSources" }
+    },
+    "arch": {
+      "type": "object",
+      "description": "CPU architecture conditional overlays.",
+      "patternProperties": {
+        "^(x86_64|x86|aarch64|arm|mips|mips64|powerpc|powerpc64|riscv64|s390x|sparc64|wasm32|wasm64)$": {
+          "$ref": "#/definitions/conditionalSources"
+        }
+      },
+      "additionalProperties": { "$ref": "#/definitions/conditionalSources" }
+    }
+  },
+  "additionalProperties": true,
+  "definitions": {
+    "stringOrStringArray": {
+      "oneOf": [
+        { "type": "string" },
+        { "type": "array", "items": { "type": "string" } }
+      ]
+    },
+    "languageSettings": {
+      "type": "object",
+      "properties": {
+        "std": { "type": "string", "description": "Language standard." },
+        "stdlib": {
+          "type": "string",
+          "description": "C++ standard library selection.",
+          "enum": ["libc++", "libstdc++", "none"]
+        }
+      },
+      "additionalProperties": {
+        "description": "Compiler-template language option.",
+        "type": ["string", "number", "integer", "boolean", "array", "object"]
+      }
+    },
+    "libTarget": {
+      "type": "object",
+      "description": "Library artifact declaration.",
+      "properties": {
+        "type": { "type": "string", "enum": ["static", "shared", "header"] },
+        "srcs": { "$ref": "#/definitions/stringOrStringArray" },
+        "hdrs": { "type": "array", "items": { "type": "string" } },
+        "link": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "binTarget": {
+      "type": "object",
+      "required": ["name", "src"],
+      "properties": {
+        "name": { "type": "string" },
+        "src": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "dependencyTable": {
+      "type": "object",
+      "description": "Dependency table. Freight only exposes headers and link flags for dependencies explicitly listed here and active for the current build.",
+      "additionalProperties": {
+        "oneOf": [
+          { "type": "string" },
+          { "$ref": "#/definitions/dependency" }
+        ]
+      }
+    },
+    "dependency": {
+      "type": "object",
+      "properties": {
+        "version": { "type": "string" },
+        "path": { "type": "string" },
+        "git": { "type": "string" },
+        "branch": { "type": "string" },
+        "tag": { "type": "string" },
+        "rev": { "type": "string" },
+        "url": { "type": "string" },
+        "sha256": { "type": "string", "pattern": "^[A-Fa-f0-9]{64}$" },
+        "features": { "type": "array", "items": { "type": "string" } },
+        "default-features": { "type": "boolean" },
+        "optional": { "type": "boolean" },
+        "targets": { "type": "array", "items": { "type": "string" } },
+        "os": { "$ref": "#/definitions/stringOrStringArray" },
+        "arch": { "$ref": "#/definitions/stringOrStringArray" },
+        "type": {
+          "type": "string",
+          "enum": ["cmake", "make", "meson", "autotools", "scons", "bazel", "none"]
+        },
+        "include": { "type": "array", "items": { "type": "string" } },
+        "cmake-args": { "type": "array", "items": { "type": "string" } },
+        "cmake_args": { "type": "array", "items": { "type": "string" } },
+        "patches": { "type": "array", "items": { "type": "string" } },
+        "repo": { "type": "string", "description": "Resolver override such as system, pkg-config, or a named registry." },
+        "unity": { "type": "boolean" },
+        "channel": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "compiler": {
+      "type": "object",
+      "properties": {
+        "backend": { "type": "string", "default": "auto" },
+        "opt-level": { "type": "integer", "minimum": 0, "maximum": 3 },
+        "debug": { "type": "boolean" },
+        "warnings": { "type": "string", "enum": ["none", "default", "all", "error"] },
+        "defines": { "type": "array", "items": { "type": "string" } },
+        "flags": { "type": "array", "items": { "type": "string" } },
+        "includes": { "type": "array", "items": { "type": "string" } },
+        "pch": { "type": "string", "description": "Relative path to a precompiled header." },
+        "unity": { "type": "boolean" }
+      },
+      "additionalProperties": {
+        "oneOf": [
+          { "$ref": "#/definitions/compilerToolOptions" },
+          { "type": ["string", "number", "integer", "boolean", "array"] }
+        ]
+      }
+    },
+    "compilerToolOptions": {
+      "type": "object",
+      "properties": {
+        "version": { "type": "string", "description": "Compiler version requirement." }
+      },
+      "additionalProperties": { "type": ["string", "number", "integer", "boolean", "array"] }
+    },
+    "profile": {
+      "type": "object",
+      "properties": {
+        "inherits": { "type": "string" },
+        "opt-level": { "type": "integer", "minimum": 0, "maximum": 3 },
+        "debug": { "type": "boolean" },
+        "lto": { "type": "boolean" },
+        "strip": { "type": "boolean" },
+        "sanitize": { "type": "array", "items": { "type": "string" } },
+        "features": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": true
+    },
+    "target": {
+      "type": "object",
+      "properties": {
+        "arch": { "type": "string" },
+        "cpu-extensions": { "type": "array", "items": { "type": "string" } },
+        "cpu_extensions": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": true
+    },
+    "toolSettings": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" }
+      },
+      "additionalProperties": { "type": ["string", "number", "integer", "boolean", "array"] }
+    },
+    "conditionalSources": {
+      "type": "object",
+      "properties": {
+        "srcs": { "type": "array", "items": { "type": "string" } },
+        "defines": { "type": "array", "items": { "type": "string" } },
+        "flags": { "type": "array", "items": { "type": "string" } },
+        "includes": { "type": "array", "items": { "type": "string" } },
+        "dependencies": { "$ref": "#/definitions/dependencyTable" },
+        "language": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/definitions/languageSettings" }
+        }
+      },
+      "additionalProperties": true
+    }
+  }
+}

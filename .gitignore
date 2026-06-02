@@ -1,0 +1,8 @@
+node_modules/
+.vscode/
+*.vsix
+/out/
+/dist/
+/coverage/
+npm-debug.log
+yarn-error.log
