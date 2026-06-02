@@ -55,24 +55,13 @@ function activate(context) {
     })
   );
 
-  // Explorer panel
-  explorerProvider = new FreightExplorerProvider();
-  const explorerView = vscode.window.createTreeView("freight.explorerView", {
-    treeDataProvider: explorerProvider,
-    showCollapseAll: true,
-  });
-  context.subscriptions.push(explorerView, explorerProvider);
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand("freight.refreshExplorer", () => {
-      explorerProvider.refresh();
-    }),
-    vscode.commands.registerCommand("freight.openDepDoc", async (depName) => {
-      const name = depName || await vscode.window.showInputBox({ prompt: "Dependency name" });
-      if (!name) return;
-      await runFreightCommand(["doc", "--open", name]);
-    })
-  );
+  // Explorer panel — deferred, not yet wired up
+  // context.subscriptions.push(
+  //   vscode.window.createTreeView("freight.explorerView", {
+  //     treeDataProvider: new FreightExplorerProvider(),
+  //     showCollapseAll: true,
+  //   })
+  // );
 
   startLanguageServer(context);
 }

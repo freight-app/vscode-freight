@@ -46,7 +46,7 @@
         {
           "id": "freight.explorerView",
           "name": "Freight Explorer",
-          "when": "true"
+          "when": "false"
         }
       ]
     },
