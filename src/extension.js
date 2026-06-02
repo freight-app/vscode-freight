@@ -149,12 +149,26 @@ async function stopLanguageServer() {
 function freightDocumentSelector() {
   const sourcePatterns = [
     "**/*.{c,h,cc,hh,cpp,hpp,cxx,hxx,c++,h++,cppm,ixx,mpp}",
-    "**/*.{cu,cuh,hip,m,mm}",
-    "**/*.{f,for,f90,f95,f03,f08}",
+    "**/*.{cu,cuh,hip,cl,ispc,m,mm}",
+    "**/*.{f,for,ftn,f77,f66,f90,f95,f03,f08,f18}",
+    "**/*.{F,FOR,FTN,F77,F66,F90,F95,F03,F08,F18}",
     "**/*.{asm,nasm,s,S}"
   ];
   return [
     { language: "freight-manifest", scheme: "file" },
+    // Language-ID selectors cover files opened by other extensions that assign
+    // a language ID before the file-pattern selectors fire.
+    { language: "c",             scheme: "file" },
+    { language: "cpp",           scheme: "file" },
+    { language: "cuda-cpp",      scheme: "file" },
+    { language: "objective-c",   scheme: "file" },
+    { language: "objective-cpp", scheme: "file" },
+    { language: "fortran",        scheme: "file" },
+    { language: "FortranFreeForm", scheme: "file" },
+    { language: "FortranFixedForm", scheme: "file" },
+    { language: "asm",  scheme: "file" },
+    { language: "nasm", scheme: "file" },
+    { language: "gas",  scheme: "file" },
     ...sourcePatterns.map((pattern) => ({ scheme: "file", pattern }))
   ];
 }
