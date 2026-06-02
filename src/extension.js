@@ -1,8 +1,10 @@
 const vscode = require("vscode");
 const { LanguageClient } = require("vscode-languageclient/node");
+const { FreightExplorerProvider } = require("./explorer");
 
 let client;
 let statusBar;
+let explorerProvider;
 
 function activate(context) {
   statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 50);
@@ -50,6 +52,25 @@ function activate(context) {
         await stopLanguageServer();
         await startLanguageServer(context);
       }
+    })
+  );
+
+  // Explorer panel
+  explorerProvider = new FreightExplorerProvider();
+  const explorerView = vscode.window.createTreeView("freight.explorerView", {
+    treeDataProvider: explorerProvider,
+    showCollapseAll: true,
+  });
+  context.subscriptions.push(explorerView, explorerProvider);
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("freight.refreshExplorer", () => {
+      explorerProvider.refresh();
+    }),
+    vscode.commands.registerCommand("freight.openDepDoc", async (depName) => {
+      const name = depName || await vscode.window.showInputBox({ prompt: "Dependency name" });
+      if (!name) return;
+      await runFreightCommand(["doc", "--open", name]);
     })
   );
 

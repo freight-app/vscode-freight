@@ -23,7 +23,8 @@
     "onCommand:freight.restartLanguageServer",
     "onCommand:freight.generateCompileCommands",
     "onCommand:freight.run",
-    "onCommand:freight.debug"
+    "onCommand:freight.debug",
+    "onView:freight.explorerView"
   ],
   "main": "./src/extension.js",
   "scripts": {
@@ -31,6 +32,24 @@
     "package": "bun run check"
   },
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "freight-explorer",
+          "title": "Freight",
+          "icon": "images/freight-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "freight-explorer": [
+        {
+          "id": "freight.explorerView",
+          "name": "Freight Explorer",
+          "when": "true"
+        }
+      ]
+    },
     "languages": [
       {
         "id": "freight-manifest",
@@ -138,6 +157,16 @@
       {
         "command": "freight.debug",
         "title": "Freight: Debug"
+      },
+      {
+        "command": "freight.refreshExplorer",
+        "title": "Freight: Refresh Explorer",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "freight.openDepDoc",
+        "title": "Freight: Open Dependency Docs",
+        "icon": "$(book)"
       }
     ],
     "debuggers": [
@@ -245,17 +274,25 @@
     ],
     "menus": {
       "commandPalette": [
+        { "command": "freight.restartLanguageServer" },
+        { "command": "freight.generateCompileCommands" },
+        { "command": "freight.run" },
+        { "command": "freight.debug" },
+        { "command": "freight.refreshExplorer" },
+        { "command": "freight.openDepDoc" }
+      ],
+      "view/title": [
         {
-          "command": "freight.restartLanguageServer"
-        },
+          "command": "freight.refreshExplorer",
+          "when": "view == freight.explorerView",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
         {
-          "command": "freight.generateCompileCommands"
-        },
-        {
-          "command": "freight.run"
-        },
-        {
-          "command": "freight.debug"
+          "command": "freight.openDepDoc",
+          "when": "view == freight.explorerView && viewItem == freightDep",
+          "group": "inline"
         }
       ]
     },
