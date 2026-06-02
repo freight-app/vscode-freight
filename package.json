@@ -16,7 +16,10 @@
   "activationEvents": [
     "onLanguage:freight-manifest",
     "workspaceContains:freight.toml",
+    "onDebug",
+    "onDebugInitialConfigurations",
     "onDebugResolve:freight",
+    "onDebugAdapterProtocolTracker:freight",
     "onCommand:freight.restartLanguageServer",
     "onCommand:freight.generateCompileCommands",
     "onCommand:freight.run",
@@ -193,7 +196,15 @@
               },
               "debugger": {
                 "type": "string",
-                "description": "Debugger passed to freight debug --debugger."
+                "enum": [
+                  "gdb",
+                  "lldb"
+                ],
+                "description": "Optional debugger backend override. Omit to use Freight's developer config."
+              },
+              "debuggerPath": {
+                "type": "string",
+                "description": "Optional path to the debugger executable, for example /usr/bin/gdb."
               },
               "cwd": {
                 "type": "string",

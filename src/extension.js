@@ -26,7 +26,14 @@ function activate(context) {
       await runFreightCommand(["compile-commands"]);
     }),
     vscode.commands.registerCommand("freight.run", async () => {
-      await runFreightCommand(["run"]);
+      await vscode.debug.startDebugging(getActiveWorkspaceFolder(), {
+        type: "freight",
+        request: "launch",
+        name: "Freight: Run",
+        mode: "run",
+        cwd: "${workspaceFolder}",
+        args: []
+      });
     }),
     vscode.commands.registerCommand("freight.debug", async () => {
       await vscode.debug.startDebugging(getActiveWorkspaceFolder(), {
@@ -208,117 +215,10 @@ class FreightDebugProvider {
 }
 
 class FreightDebugAdapterFactory {
-  createDebugAdapterDescriptor() {
-    return new vscode.DebugAdapterInlineImplementation(new FreightTerminalDebugAdapter());
-  }
-}
-
-class FreightTerminalDebugAdapter {
-  constructor() {
-    this.emitter = new vscode.EventEmitter();
-    this.onDidSendMessage = this.emitter.event;
-  }
-
-  handleMessage(message) {
-    switch (message.command) {
-      case "initialize":
-        this.sendResponse(message, {
-          supportsConfigurationDoneRequest: true
-        });
-        this.sendEvent("initialized");
-        break;
-      case "launch":
-        this.launch(message);
-        break;
-      case "configurationDone":
-      case "threads":
-        this.sendResponse(message, message.command === "threads" ? { threads: [] } : {});
-        break;
-      case "disconnect":
-        this.sendResponse(message, {});
-        this.sendEvent("terminated");
-        break;
-      default:
-        this.sendResponse(message, {});
-        break;
-    }
-  }
-
-  launch(message) {
-    const config = message.arguments || {};
-    const mode = config.mode || "run";
-    const freightArgs = mode === "debug" ? debugArgs(config) : runArgs(config);
+  createDebugAdapterDescriptor(session) {
     const freight = vscode.workspace.getConfiguration("freight").get("executablePath", "freight");
-    const terminal = vscode.window.createTerminal({
-      name: config.name || (mode === "debug" ? "Freight: Debug" : "Freight: Run"),
-      cwd: config.cwd || undefined
-    });
-    terminal.show();
-    terminal.sendText(commandLine(freight, freightArgs), true);
-    this.sendResponse(message, {});
-  }
-
-  sendResponse(request, body) {
-    this.emitter.fire({
-      type: "response",
-      seq: 0,
-      request_seq: request.seq,
-      success: true,
-      command: request.command,
-      body
-    });
-  }
-
-  sendEvent(event, body) {
-    this.emitter.fire({
-      type: "event",
-      seq: 0,
-      event,
-      body
-    });
-  }
-
-  dispose() {
-    this.emitter.dispose();
-  }
-}
-
-function runArgs(config) {
-  const args = ["run"];
-  if (config.release) {
-    args.push("--release");
-  }
-  if (config.package) {
-    args.push("-p", config.package);
-  }
-  if (config.bin) {
-    args.push("--bin", config.bin);
-  }
-  if (Array.isArray(config.features) && config.features.length > 0) {
-    args.push("--features", config.features.join(","));
-  }
-  if (config.noDefaultFeatures) {
-    args.push("--no-default-features");
-  }
-  appendProgramArgs(args, config.args);
-  return args;
-}
-
-function debugArgs(config) {
-  const args = ["debug"];
-  if (config.bin) {
-    args.push(config.bin);
-  }
-  if (config.debugger) {
-    args.push("--debugger", config.debugger);
-  }
-  appendProgramArgs(args, config.args);
-  return args;
-}
-
-function appendProgramArgs(args, programArgs) {
-  if (Array.isArray(programArgs) && programArgs.length > 0) {
-    args.push("--", ...programArgs);
+    const cwd = session && session.configuration && session.configuration.cwd;
+    return new vscode.DebugAdapterExecutable(freight, ["dap"], cwd ? { cwd } : undefined);
   }
 }
 
