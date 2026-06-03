@@ -11,13 +11,16 @@ let activeTarget  = null;    // string | null  — active [[bin]] name, null = a
 let activeSysroot = null;    // string | null  — sysroot path
 let activeFamily  = null;    // "gcc" | "clang" | "msvc" | "nvcc" | null = auto
 
+// Detected toolchains from LSP (refreshed after server starts)
+let detectedFamilies = null;  // string[] | null — null = not yet queried
+
 // Status bar items (Left, descending priority = left-to-right order) ─────────
 let sbBuild;    // priority 54 — $(package) Freight [release]
 let sbTarget;   // priority 53 — $(run) target
 let sbSysroot;  // priority 52 — $(server-environment) sysroot
 let sbFamily;   // priority 51 — $(chip) family
 
-const FAMILIES = [
+const ALL_FAMILIES = [
   { label: "auto",  description: "Let freight detect the compiler" },
   { label: "gcc",   description: "GCC / g++ / gfortran" },
   { label: "clang", description: "Clang / clang++ / clang-cl" },
@@ -148,15 +151,26 @@ function activate(context) {
       if (input !== undefined) {
         activeSysroot = input.trim() || null;
         await context.workspaceState.update("freight.sysroot", activeSysroot);
+        // Persist to freight.toml via LSP so it survives across sessions.
+        if (client) {
+          client.sendRequest("freight/setConfig", {
+            key: "compiler.sysroot",
+            value: activeSysroot ?? null,
+          }).catch(() => {});
+        }
         refreshStatusBars("idle");
       }
     }),
     vscode.commands.registerCommand("freight.pickFamily", async () => {
-      const items = FAMILIES.map((f) => ({
-        ...f,
-        label: (f.label === (activeFamily ?? "auto") ? "$(check) " : "        ") + f.label,
-        value: f.label === "auto" ? null : f.label,
-      }));
+      // Use detected families from LSP if available; fall back to the full list.
+      const available = detectedFamilies ?? ALL_FAMILIES.map((f) => f.label);
+      const items = ALL_FAMILIES
+        .filter((f) => available.includes(f.label))
+        .map((f) => ({
+          ...f,
+          label: (f.label === (activeFamily ?? "auto") ? "$(check) " : "        ") + f.label,
+          value: f.label === "auto" ? null : f.label,
+        }));
       const choice = await vscode.window.showQuickPick(items, {
         placeHolder: `Compiler family: ${activeFamily ?? "auto"}`,
       });
@@ -290,6 +304,8 @@ async function startLanguageServer(context) {
   try {
     await client.start();
     refreshStatusBars("ok");
+    // Query workspace info to get detected toolchains and current sysroot.
+    queryWorkspaceInfo(context).catch(() => {});
   } catch (error) {
     refreshStatusBars("fail");
     vscode.window.showWarningMessage(`Could not start freight lsp: ${error.message || error}`);
@@ -298,6 +314,28 @@ async function startLanguageServer(context) {
 
 function appendIfChanged(args, flag, value, defaultValue) {
   if (value && value !== defaultValue) args.push(flag, value);
+}
+
+/** Query `freight/workspaceInfo` from the running LSP client.
+ *  Updates `detectedFamilies` and initialises `activeSysroot` from the manifest
+ *  if it hasn't been overridden by the user in this session. */
+async function queryWorkspaceInfo(context) {
+  if (!client) return;
+  const info = await client.sendRequest("freight/workspaceInfo");
+  if (!info) return;
+
+  // Update detected family list (always "auto" + whatever the LSP found).
+  if (Array.isArray(info.toolchains)) {
+    detectedFamilies = ["auto", ...info.toolchains.map((tc) => tc.family)];
+  }
+
+  // Seed sysroot from freight.toml if the user hasn't set one locally yet.
+  const savedSysroot = context.workspaceState.get("freight.sysroot", null);
+  if (savedSysroot === null && info.sysroot) {
+    activeSysroot = info.sysroot;
+    await context.workspaceState.update("freight.sysroot", activeSysroot);
+    refreshStatusBars("idle");
+  }
 }
 
 async function stopLanguageServer() {
