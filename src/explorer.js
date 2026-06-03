@@ -107,7 +107,8 @@ const Kind = {
   ROOT_BUILD_DEPS: "root_build_deps",
   ROOT_TARGETS: "root_targets",
   DEP: "dep",
-  TARGET: "target",
+  BIN_TARGET: "bin_target",
+  LIB_TARGET: "lib_target",
   INFO: "info",
 };
 
@@ -127,10 +128,19 @@ class ExplorerNode extends vscode.TreeItem {
         title: "Open Docs",
         arguments: [meta.name],
       };
-    } else if (kind === Kind.TARGET) {
-      this.iconPath = new vscode.ThemeIcon(meta.targetType === "bin" ? "run" : "library");
+    } else if (kind === Kind.BIN_TARGET) {
+      this.iconPath = new vscode.ThemeIcon("run");
       this.description = meta.src || "";
-      this.contextValue = "freightTarget";
+      this.contextValue = "freightBinTarget";
+      this.command = {
+        command: "freight.debugTarget",
+        title: "Debug",
+        arguments: [meta.name],
+      };
+    } else if (kind === Kind.LIB_TARGET) {
+      this.iconPath = new vscode.ThemeIcon("library");
+      this.description = meta.src || "";
+      this.contextValue = "freightLibTarget";
     } else if (kind === Kind.ROOT_PROJECT) {
       this.iconPath = new vscode.ThemeIcon("project");
       this.contextValue = "freightProject";
@@ -156,7 +166,8 @@ class ExplorerNode extends vscode.TreeItem {
 // ── Provider ───────────────────────────────────────────────────────────────
 
 class FreightExplorerProvider {
-  constructor() {
+  constructor(context) {
+    this._context = context;
     this._onDidChangeTreeData = new vscode.EventEmitter();
     this.onDidChangeTreeData = this._onDidChangeTreeData.event;
     this._toml = null;
@@ -209,6 +220,11 @@ class FreightExplorerProvider {
   getChildren(element) {
     if (!element) return this._rootNodes();
     return this._childNodes(element);
+  }
+
+  /** Returns the names of all [[bin]] targets in the current manifest. */
+  getBinNames() {
+    return (this._toml?.bins ?? []).map((b) => b.name).filter(Boolean);
   }
 
   _rootNodes() {
@@ -301,16 +317,16 @@ class FreightExplorerProvider {
         nodes.push(new ExplorerNode(
           bin.name || "(unnamed)",
           vscode.TreeItemCollapsibleState.None,
-          Kind.TARGET,
-          { targetType: "bin", src: bin.src || "" }
+          Kind.BIN_TARGET,
+          { name: bin.name || "", src: bin.src || "" }
         ));
       }
       for (const lib of meta.libs) {
         nodes.push(new ExplorerNode(
           lib.name || "(unnamed)",
           vscode.TreeItemCollapsibleState.None,
-          Kind.TARGET,
-          { targetType: "lib", src: lib.src || "" }
+          Kind.LIB_TARGET,
+          { name: lib.name || "", src: lib.src || "" }
         ));
       }
       return nodes;

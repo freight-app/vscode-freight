@@ -5,12 +5,15 @@ const { FreightExplorerProvider } = require("./explorer");
 let client;
 let statusBar;
 let explorerProvider;
+// "dev" | "release" — persisted in workspace state
+let activeProfile = "dev";
 
 function activate(context) {
+  activeProfile = context.workspaceState.get("freight.profile", "dev");
+
   statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 50);
-  statusBar.text = "$(package) Freight";
-  statusBar.tooltip = "Freight";
-  statusBar.command = "freight.generateCompileCommands";
+  statusBar.command = "freight.toggleProfile";
+  updateStatusBar("idle");
   statusBar.show();
   context.subscriptions.push(statusBar);
 
@@ -18,6 +21,33 @@ function activate(context) {
   context.subscriptions.push(vscode.tasks.registerTaskProvider("freight", taskProvider));
   context.subscriptions.push(vscode.debug.registerDebugConfigurationProvider("freight", new FreightDebugProvider()));
   context.subscriptions.push(vscode.debug.registerDebugAdapterDescriptorFactory("freight", new FreightDebugAdapterFactory()));
+
+  // Explorer panel
+  explorerProvider = new FreightExplorerProvider(context);
+  const explorerView = vscode.window.createTreeView("freight.explorerView", {
+    treeDataProvider: explorerProvider,
+    showCollapseAll: true,
+  });
+  context.subscriptions.push(explorerView);
+
+  // Track build results via task end events
+  context.subscriptions.push(
+    vscode.tasks.onDidStartTask((e) => {
+      if (e.execution.task.source === "freight") {
+        updateStatusBar("building");
+      }
+    }),
+    vscode.tasks.onDidEndTask((e) => {
+      if (e.execution.task.source === "freight") {
+        updateStatusBar("idle");
+      }
+    }),
+    vscode.tasks.onDidEndTaskProcess((e) => {
+      if (e.execution.task.source === "freight") {
+        updateStatusBar(e.exitCode === 0 ? "ok" : "fail");
+      }
+    })
+  );
 
   context.subscriptions.push(
     vscode.commands.registerCommand("freight.restartLanguageServer", async () => {
@@ -33,6 +63,7 @@ function activate(context) {
         request: "launch",
         name: "Freight: Run",
         mode: "run",
+        release: activeProfile === "release",
         cwd: "${workspaceFolder}",
         args: []
       });
@@ -47,6 +78,51 @@ function activate(context) {
         args: []
       });
     }),
+    vscode.commands.registerCommand("freight.toggleProfile", async () => {
+      const choice = await vscode.window.showQuickPick(
+        [
+          { label: "dev", description: "Debug build (default)" },
+          { label: "release", description: "Optimised release build" },
+        ],
+        { placeHolder: `Active profile: ${activeProfile}` }
+      );
+      if (choice) {
+        activeProfile = choice.label;
+        await context.workspaceState.update("freight.profile", activeProfile);
+        updateStatusBar("idle");
+      }
+    }),
+    vscode.commands.registerCommand("freight.refreshExplorer", () => {
+      explorerProvider.refresh();
+    }),
+    vscode.commands.registerCommand("freight.openDepDoc", (name) => {
+      if (name) {
+        vscode.env.openExternal(vscode.Uri.parse(`https://freight.dev/packages/${name}`));
+      }
+    }),
+    vscode.commands.registerCommand("freight.runTarget", async (binName) => {
+      await vscode.debug.startDebugging(getActiveWorkspaceFolder(), {
+        type: "freight",
+        request: "launch",
+        name: `Freight: Run ${binName}`,
+        mode: "run",
+        release: activeProfile === "release",
+        bin: binName,
+        cwd: "${workspaceFolder}",
+        args: []
+      });
+    }),
+    vscode.commands.registerCommand("freight.debugTarget", async (binName) => {
+      await vscode.debug.startDebugging(getActiveWorkspaceFolder(), {
+        type: "freight",
+        request: "launch",
+        name: `Freight: Debug ${binName}`,
+        mode: "debug",
+        bin: binName,
+        cwd: "${workspaceFolder}",
+        args: []
+      });
+    }),
     vscode.workspace.onDidChangeConfiguration(async (event) => {
       if (event.affectsConfiguration("freight.lsp") || event.affectsConfiguration("freight.executablePath")) {
         await stopLanguageServer();
@@ -55,15 +131,28 @@ function activate(context) {
     })
   );
 
-  // Explorer panel — deferred, not yet wired up
-  // context.subscriptions.push(
-  //   vscode.window.createTreeView("freight.explorerView", {
-  //     treeDataProvider: new FreightExplorerProvider(),
-  //     showCollapseAll: true,
-  //   })
-  // );
-
   startLanguageServer(context);
+}
+
+function updateStatusBar(state) {
+  const profile = activeProfile === "release" ? " [release]" : "";
+  switch (state) {
+    case "building":
+      statusBar.text = `$(sync~spin) Freight${profile}`;
+      statusBar.tooltip = "Freight — building…";
+      break;
+    case "ok":
+      statusBar.text = `$(check) Freight${profile}`;
+      statusBar.tooltip = "Freight — last build succeeded. Click to switch profile.";
+      break;
+    case "fail":
+      statusBar.text = `$(error) Freight${profile}`;
+      statusBar.tooltip = "Freight — last build failed. Click to switch profile.";
+      break;
+    default:
+      statusBar.text = `$(package) Freight${profile}`;
+      statusBar.tooltip = "Freight — click to switch profile (dev/release)";
+  }
 }
 
 function getActiveWorkspaceFolder() {
@@ -81,7 +170,7 @@ async function deactivate() {
 async function startLanguageServer(context) {
   const config = vscode.workspace.getConfiguration("freight");
   if (!config.get("lsp.enabled", true)) {
-    setStatus("$(package) Freight");
+    updateStatusBar("idle");
     return;
   }
 
@@ -120,12 +209,12 @@ async function startLanguageServer(context) {
   );
 
   context.subscriptions.push(client);
-  setStatus("$(sync~spin) Freight LSP");
+  updateStatusBar("building");
   try {
     await client.start();
-    setStatus("$(check) Freight LSP");
+    updateStatusBar("ok");
   } catch (error) {
-    setStatus("$(error) Freight LSP");
+    updateStatusBar("fail");
     vscode.window.showWarningMessage(`Could not start freight lsp: ${error.message || error}`);
   }
 }
@@ -143,7 +232,7 @@ async function stopLanguageServer() {
   const old = client;
   client = undefined;
   await old.stop();
-  setStatus("$(package) Freight");
+  updateStatusBar("idle");
 }
 
 function freightDocumentSelector() {
@@ -156,8 +245,6 @@ function freightDocumentSelector() {
   ];
   return [
     { language: "freight-manifest", scheme: "file" },
-    // Language-ID selectors cover files opened by other extensions that assign
-    // a language ID before the file-pattern selectors fire.
     { language: "c",             scheme: "file" },
     { language: "cpp",           scheme: "file" },
     { language: "cuda-cpp",      scheme: "file" },
@@ -195,12 +282,6 @@ async function runFreightCommand(args) {
   await vscode.tasks.executeTask(task);
 }
 
-function setStatus(text) {
-  if (statusBar) {
-    statusBar.text = text;
-  }
-}
-
 class FreightTaskProvider {
   provideTasks() {
     const folders = vscode.workspace.workspaceFolders || [];
@@ -229,21 +310,110 @@ class FreightDebugProvider {
     return {
       ...config,
       type: "freight",
-      request: "launch",
+      request: config.request || "launch",
       name: config.name || (mode === "debug" ? "Freight: Debug" : "Freight: Run"),
       mode,
       cwd: resolveCwd(config.cwd, workspaceFolder),
       args: Array.isArray(config.args) ? config.args : []
     };
   }
+
+  async provideDebugConfigurations(folder) {
+    const bins = await explorerProvider?.getBinNames() ?? [];
+    const configs = [
+      {
+        name: "Freight: Run",
+        type: "freight",
+        request: "launch",
+        mode: "run",
+        cwd: "${workspaceFolder}",
+        args: []
+      },
+      {
+        name: "Freight: Debug",
+        type: "freight",
+        request: "launch",
+        mode: "debug",
+        cwd: "${workspaceFolder}",
+        args: []
+      }
+    ];
+    for (const bin of bins) {
+      configs.push({
+        name: `Freight: Debug ${bin}`,
+        type: "freight",
+        request: "launch",
+        mode: "debug",
+        bin,
+        cwd: "${workspaceFolder}",
+        args: []
+      });
+    }
+    return configs;
+  }
 }
 
 class FreightDebugAdapterFactory {
-  createDebugAdapterDescriptor(session) {
+  async createDebugAdapterDescriptor(session) {
+    const config = session.configuration;
     const freight = vscode.workspace.getConfiguration("freight").get("executablePath", "freight");
-    const cwd = session && session.configuration && session.configuration.cwd;
-    return new vscode.DebugAdapterExecutable(freight, ["dap"], cwd ? { cwd } : undefined);
+    const cwd = config.cwd;
+
+    if (config.mode === "run") {
+      // freight run — not a real DAP session, launch as task instead
+      const folder = getActiveWorkspaceFolder();
+      if (folder) {
+        const resolvedConfig = await resolveBin(config);
+        if (!resolvedConfig) return undefined; // user cancelled quick-pick
+        const args = buildRunArgs(resolvedConfig);
+        await runFreightCommand(args);
+      }
+      return undefined;
+    }
+
+    // Debug mode: resolve bin if multiple targets and none specified
+    const resolvedConfig = await resolveBin(config);
+    if (!resolvedConfig) return undefined; // user cancelled quick-pick
+
+    // attach flag triggers --attach in freight dap
+    const dapArgs = ["dap"];
+    if (resolvedConfig.request === "attach") {
+      dapArgs.push("--attach");
+    }
+
+    return new vscode.DebugAdapterExecutable(freight, dapArgs, cwd ? { cwd } : undefined);
   }
+}
+
+async function resolveBin(config) {
+  if (config.bin || config.request === "attach") {
+    return config;
+  }
+  const bins = explorerProvider?.getBinNames() ?? [];
+  if (bins.length <= 1) {
+    return config; // zero or one binary — let freight decide
+  }
+  const choice = await vscode.window.showQuickPick(
+    bins.map((b) => ({ label: b })),
+    { placeHolder: "Select binary to run" }
+  );
+  if (!choice) return null; // user cancelled
+  return { ...config, bin: choice.label };
+}
+
+function buildRunArgs(config) {
+  const args = ["run"];
+  if (config.release) args.push("--release");
+  if (config.package) args.push("-p", config.package);
+  if (config.bin) args.push("--bin", config.bin);
+  if (Array.isArray(config.features) && config.features.length > 0) {
+    args.push("--features", config.features.join(","));
+  }
+  if (config.noDefaultFeatures) args.push("--no-default-features");
+  if (Array.isArray(config.args) && config.args.length > 0) {
+    args.push("--", ...config.args);
+  }
+  return args;
 }
 
 function resolveCwd(cwd, folder) {
@@ -251,17 +421,6 @@ function resolveCwd(cwd, folder) {
     return folder.uri.fsPath;
   }
   return cwd.replace("${workspaceFolder}", folder.uri.fsPath);
-}
-
-function commandLine(command, args) {
-  return [command, ...args].map(shellQuote).join(" ");
-}
-
-function shellQuote(value) {
-  if (/^[A-Za-z0-9_./:=+-]+$/.test(value)) {
-    return value;
-  }
-  return `'${String(value).replace(/'/g, "'\\''")}'`;
 }
 
 function freightTasks(folder) {
