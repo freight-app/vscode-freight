@@ -30,6 +30,6 @@
       "pid": "${command:pickProcess}",
       "stopOnEntry": false,
       "sourceLanguages": ["rust"]
-    },
+    }
   ]
 }

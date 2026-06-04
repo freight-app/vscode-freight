@@ -341,9 +341,17 @@ async function startLanguageServer(context) {
     ? { ...process.env, FREIGHT_LOG: logLevel }
     : undefined;
 
+  // In development mode run via `cargo run` so the binary has debug symbols
+  // and breakpoints work in the Rust source. In production use the installed binary.
+  const extensionRoot = path.resolve(__dirname, "..");
+  const cargoWorkspace = path.resolve(extensionRoot, "../..");
+  const serverOptions = isDev
+    ? { command: "cargo", args: ["run", "-p", "freight", "--", ...args], options: { cwd: cargoWorkspace, env: serverEnv } }
+    : { command: freight, args, options: { env: serverEnv } };
+
   client = new LanguageClient(
     "freight", "Freight",
-    { command: freight, args, options: { env: serverEnv } },
+    serverOptions,
     {
       documentSelector: freightDocumentSelector(),
       synchronize: { fileEvents: vscode.workspace.createFileSystemWatcher("**/freight.toml") },
@@ -412,15 +420,19 @@ async function attachFreightDebugger() {
   });
 }
 
-/** Scan /proc for a process whose cmdline contains "freight" and "lsp". */
+/** Scan /proc for the freight LSP process.
+ *  Matches both the installed binary ("freight lsp") and the cargo-run
+ *  debug binary (".../target/debug/freight lsp"). */
 function findFreightLspPid() {
   try {
     const entries = fs.readdirSync("/proc").filter((e) => /^\d+$/.test(e));
     for (const entry of entries) {
       try {
         const cmdline = fs.readFileSync(`/proc/${entry}/cmdline`, "utf8");
-        const parts = cmdline.split("\0");
-        if (parts.some((p) => p.includes("freight")) && parts.includes("lsp")) {
+        const parts = cmdline.split("\0").filter(Boolean);
+        const exe = parts[0] || "";
+        const isFreight = exe === "freight" || exe.endsWith("/freight") || exe.endsWith("/debug/freight");
+        if (isFreight && parts.includes("lsp")) {
           return parseInt(entry, 10);
         }
       } catch { /* process gone or no permission */ }
