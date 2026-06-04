@@ -32,6 +32,15 @@ const ALL_FAMILIES = [
 ];
 
 function activate(context) {
+  try {
+    _activate(context);
+  } catch (err) {
+    vscode.window.showErrorMessage(`freight extension failed to activate: ${err?.message ?? err}`);
+    throw err;
+  }
+}
+
+function _activate(context) {
   activeProfile = context.workspaceState.get("freight.profile", "dev");
   activeTarget  = context.workspaceState.get("freight.target",  null);
   activeSysroot = context.workspaceState.get("freight.sysroot", null);
@@ -213,7 +222,7 @@ function activate(context) {
   );
 
   startLanguageServer(context);
-}
+}   // end _activate
 
 // ── Status bar rendering ─────────────────────────────────────────────────────
 
