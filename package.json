@@ -40,6 +40,7 @@
   "main": "./src/extension.js",
   "scripts": {
     "check": "bun build src/extension.js --target=node --external vscode --external vscode-languageclient/node --outdir /tmp/vscode-freight-check",
+    "test": "node tests/dap-config.test.js",
     "package": "bun run check"
   },
   "contributes": {
@@ -149,6 +150,20 @@
           "type": "boolean",
           "default": true,
           "description": "Allow freight lsp to start asm-lsp."
+        },
+        "freight.lsp.logLevel": {
+          "type": "string",
+          "default": "",
+          "enum": ["", "error", "warn", "info", "debug", "trace"],
+          "enumDescriptions": [
+            "No logging (default)",
+            "Errors only",
+            "Errors and warnings",
+            "Lifecycle events (start, shutdown, compile_commands refresh)",
+            "Hover enrichment, message routing, per-hover details",
+            "Raw clangd output + all of the above"
+          ],
+          "description": "Log level for freight lsp. Output appears in the Freight Language Server output channel. Automatically set to 'debug' when the extension runs in development mode (F5)."
         }
       }
     },
@@ -234,6 +249,11 @@
                 "default": false,
                 "description": "Pass --release to freight run."
               },
+              "profile": {
+                "type": "string",
+                "default": "dev",
+                "description": "Freight profile used when building before debug launch."
+              },
               "package": {
                 "type": "string",
                 "description": "Workspace package passed as -p."
@@ -275,6 +295,14 @@
               "debuggerPath": {
                 "type": "string",
                 "description": "Optional debugger command or adapter path, for example gdb, /usr/bin/gdb, or /usr/bin/lldb-dap."
+              },
+              "debuggerArgs": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "default": [],
+                "description": "Extra native debugger adapter process arguments appended after config.toml debugger args."
               },
               "stopAtEntry": {
                 "type": "boolean",
@@ -323,6 +351,14 @@
               "debuggerPath": {
                 "type": "string",
                 "description": "Optional debugger command or adapter path, for example gdb, /usr/bin/gdb, or /usr/bin/lldb-dap."
+              },
+              "debuggerArgs": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "default": [],
+                "description": "Extra native debugger adapter process arguments appended after config.toml debugger args."
               },
               "pid": {
                 "type": "number",

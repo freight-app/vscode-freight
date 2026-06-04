@@ -1,6 +1,9 @@
 const vscode = require("vscode");
 const { LanguageClient } = require("vscode-languageclient/node");
 const { FreightExplorerProvider } = require("./explorer");
+const fs = require("fs");
+const os = require("os");
+const path = require("path");
 
 let client;
 let explorerProvider;
@@ -289,9 +292,19 @@ async function startLanguageServer(context) {
   if (!config.get("lsp.enableFortls", true))   args.push("--no-fortls");
   if (!config.get("lsp.enableAsmLsp", true))   args.push("--no-asm-lsp");
 
+  // Resolve log level: explicit setting wins; fall back to "debug" in
+  // extension development mode (F5) so logs appear automatically.
+  const cfgLogLevel = config.get("lsp.logLevel", "");
+  const logLevel = cfgLogLevel ||
+    (context.extensionMode === vscode.ExtensionMode.Development ? "debug" : "");
+
+  const serverEnv = logLevel
+    ? { ...process.env, FREIGHT_LOG: logLevel }
+    : undefined;
+
   client = new LanguageClient(
     "freight", "Freight",
-    { command: freight, args },
+    { command: freight, args, options: { env: serverEnv } },
     {
       documentSelector: freightDocumentSelector(),
       synchronize: { fileEvents: vscode.workspace.createFileSystemWatcher("**/freight.toml") },
@@ -418,12 +431,15 @@ class FreightDebugProvider {
       request: config.request || "launch",
       name: config.name || (mode === "debug" ? "Freight: Debug" : "Freight: Run"),
       mode,
+      profile: config.profile ?? activeProfile,
+      release: config.release ?? activeProfile === "release",
       // Inject status bar values as defaults (explicit launch config overrides them)
       bin:     config.bin     ?? activeTarget  ?? undefined,
       sysroot: config.sysroot ?? activeSysroot ?? undefined,
       family:  config.family  ?? activeFamily  ?? undefined,
       cwd: resolveCwd(config.cwd, workspaceFolder),
-      args: Array.isArray(config.args) ? config.args : []
+      args: Array.isArray(config.args) ? config.args : [],
+      stopAtBeginningOfMainSubprogram: config.stopAtBeginningOfMainSubprogram ?? config.stopAtEntry ?? undefined
     };
   }
 
@@ -469,6 +485,8 @@ class FreightDebugAdapterFactory {
 
     const dapArgs = ["dap"];
     if (resolvedConfig.request === "attach") dapArgs.push("--attach");
+    const configPath = writeDapConfig(resolvedConfig);
+    if (configPath) dapArgs.push("--config", configPath);
 
     return new vscode.DebugAdapterExecutable(freight, dapArgs, cwd ? { cwd } : undefined);
   }
@@ -535,6 +553,38 @@ function buildRunArgs(config) {
   return args;
 }
 
+function writeDapConfig(config) {
+  const payload = dapConfigPayload(config);
+  const file = path.join(os.tmpdir(), `freight-dap-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}.json`);
+  fs.writeFileSync(file, JSON.stringify(payload));
+  setTimeout(() => fs.unlink(file, () => {}), 60_000).unref?.();
+  return file;
+}
+
+function dapConfigPayload(config) {
+  const payload = {
+    request: config.request,
+    profile: config.profile,
+    release: config.release,
+    package: config.package,
+    bin: config.bin,
+    features: Array.isArray(config.features) ? config.features : undefined,
+    noDefaultFeatures: config.noDefaultFeatures,
+    debugger: config.debugger,
+    debuggerPath: config.debuggerPath,
+    debuggerArgs: Array.isArray(config.debuggerArgs) ? config.debuggerArgs : undefined,
+    cwd: config.cwd,
+    env: config.env,
+    args: Array.isArray(config.args) ? config.args : undefined,
+    stopAtEntry: config.stopAtEntry,
+    stopAtBeginningOfMainSubprogram: config.stopAtBeginningOfMainSubprogram ?? config.stopAtEntry,
+  };
+  for (const key of Object.keys(payload)) {
+    if (payload[key] === undefined) delete payload[key];
+  }
+  return payload;
+}
+
 function resolveCwd(cwd, folder) {
   if (!cwd || cwd === "${workspaceFolder}") return folder.uri.fsPath;
   return cwd.replace("${workspaceFolder}", folder.uri.fsPath);
@@ -566,4 +616,4 @@ function makeFreightTask(folder, command, args, group) {
   return task;
 }
 
-module.exports = { activate, deactivate };
+module.exports = { activate, deactivate, _test: { dapConfigPayload } };
