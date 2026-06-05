@@ -2,12 +2,14 @@
   "version": "2.0.0",
   "tasks": [
     {
+      // Builds dist/extension.js plus dist/extension.js.map before the Extension Host starts.
       "label": "bun: package",
       "type": "shell",
       "command": "bun run package",
       "problemMatcher": []
     },
     {
+      // Keeps the Rust freight binary current for extension/LSP/debug testing.
       "label": "cargo: build freight (debug)",
       "type": "shell",
       "command": "cargo build -p freight",

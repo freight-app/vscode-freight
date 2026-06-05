@@ -8,7 +8,7 @@ This extension wires VS Code to Freight projects.
 - `freight lsp` client for manifest diagnostics, completion, hover, signature
   help, and source LSP passthroughs.
 - Freight task provider for build, run, test, fetch, clean, and compile commands.
-- Run and Debug panel configurations backed by `freight dap`.
+- Run and Debug panel configurations for Freight workflows.
 - Status bar entry with a quick compile database command.
 
 ## Requirements
@@ -21,22 +21,33 @@ This extension wires VS Code to Freight projects.
 
 The extension contributes a `Freight` debug type with starter configurations:
 
-- `Freight: Run` runs through Freight's DAP adapter.
-- `Freight: Run Release` runs through Freight's DAP adapter with `release`.
-- `Freight: Debug` builds the debug profile and launches Freight's DAP debugger.
+- `Freight: Run` shells out to `freight run` through a VS Code task.
+- `Freight: Run Release` shells out to `freight run --release`.
+- `Freight: Debug` starts `freight dap`, which builds the debug profile and
+  execs into the native debugger adapter.
+- `Freight: Attach` starts `freight dap --attach`, which skips the build and
+  execs into the native debugger adapter.
 
 Optional launch fields include `package`, `bin`, `args`, `features`,
-`noDefaultFeatures`, `release`, and `debugger`. When `debugger` is omitted,
-Freight reads `default_debugger` from `~/.freight/config.toml` and
-`<workspace>/.freight/config.toml`.
+`noDefaultFeatures`, `release`, `debugger`, `debuggerPath`, `debuggerArgs`,
+`stopAtEntry`, and `env`. `Freight: Run` uses the run-related fields directly.
+`Freight: Debug` and `Freight: Attach` write the resolved launch settings to a
+temporary JSON file and start `freight dap --config <file>` so Freight can
+select the package, binary, feature set, profile, and debugger before it execs
+the native adapter.
 
-The adapter supports breakpoints, stepping, stack frames, local variables, hover
-evaluation, and watch expressions through Freight's backend.
+Native debugger adapter process args are merged in this order:
+`freight dap` defaults, `[debugger.<name>].args` from `~/.freight/config.toml`
+and `<workspace>/.freight/config.toml`, then launch.json `debuggerArgs`.
+
+Debugging depends on the native adapter selected by Freight. Install GDB with
+DAP support (`gdb --interpreter=dap`) or `lldb-dap` / `lldb-vscode`.
 
 ## Development
 
 ```sh
 bun install
+bun run test
 bun run package
 ```
 

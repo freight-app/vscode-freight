@@ -2,24 +2,44 @@
 
 ## Debug adapter
 
-- [x] **Stop-on-entry option** — expose `stopAtEntry` in launch config; when set, add
-  `stopAtBeginningOfMainSubprogram: true` to the launch args forwarded to GDB/LLDB so
-  VS Code can step from the very first instruction.
+- [x] **Resync with simplified `freight dap`** — `freight dap` now builds and
+  `exec()`s directly into GDB/LLDB. The extension now writes the resolved launch
+  config to a temp JSON file and starts `freight dap --config <file>` so
+  Freight sees build/debugger fields before selecting the native adapter.
 
-- [x] **Program args passthrough** — `args` array in launch config should be appended to
-  the `launch` arguments forwarded to GDB so the debuggee receives them.  Currently `args`
-  is used for `freight run` but not plumbed into the DAP launch path.
+- [x] **Choose config transport for debug launches** — either add stable
+  `freight dap` CLI flags / a config file for build and debugger selection.
+  Implemented as `freight dap --config <json>`.
 
-- [x] **Environment variables** — add an `env` map to the launch config
-  (`"env": {"FOO": "bar"}`) and forward it to the native adapter.
+- [x] **Stop-on-entry option** — expose `stopAtEntry` in launch config and make
+  sure it reaches the native adapter as the correct backend-specific launch
+  field (`stopAtBeginningOfMainSubprogram` for GDB/LLDB where applicable).
+
+- [x] **Program args passthrough** — `args` array in launch config should reach
+  the native adapter launch request so the debuggee receives them.
+
+- [x] **Environment variables** — `env` is present in the schema and reaches the
+  native adapter launch request.
 
 - [ ] **Pre-launch task** — honour `preLaunchTask` so users can run a custom build step
   before `freight dap` starts (freight already builds internally, but some projects
   need extra steps like code generation).
 
-- [x] **Attach to process** — the `attach` request is wired in `freight dap` but the
-  extension doesn't expose an attach configuration provider.  Add a `request: "attach"`
-  config shape with `pid` and `processName` fields.
+- [x] **Attach debugger selection** — attach starts `freight dap --attach`, but
+  `debugger` / `debuggerPath` from the VS Code attach config reach Freight via
+  `--config` before it selects the native adapter.
+
+- [ ] **Real VS Code debug smoke test** — verify launch and attach in an
+  Extension Development Host against a tiny Freight project with GDB DAP and/or
+  `lldb-dap`: breakpoints, continue, step, stack, locals, args, env, and exit.
+  Unit coverage now checks VS Code config serialization and Freight-side
+  adapter selection for fake GDB, CUDA-GDB, and LLDB DAP adapters, including
+  config.toml debugger args plus launch.json `debuggerArgs`.
+
+- [ ] **Additional DAP backends** — once Freight core grows DAP-capable adapters
+  for the remaining debugger templates, expose and smoke test them here:
+  `rr` replay workflows, Windows `cdb`, and Windows `windbg`. GDB, CUDA-GDB,
+  and LLDB DAP are the supported editor-debug backends for now.
 
 - [x] **Multi-binary workspaces** — when `bin` is not set and multiple `[[bin]]` targets exist, a quick-pick prompts for selection before launch/run.
 

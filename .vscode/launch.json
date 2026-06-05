@@ -2,7 +2,8 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Run Extension",
+      // Launches a separate VS Code Extension Host and maps dist/*.js back to src/*.ts.
+      "name": "Run Freight Extension",
       "type": "extensionHost",
       "request": "launch",
       "runtimeExecutable": "${execPath}",
@@ -10,7 +11,10 @@
         "--extensionDevelopmentPath=${workspaceFolder}",
         "${workspaceFolder}/../../crates/freight/examples/cpp/hello"
       ],
-      "outFiles": [],
+      "outFiles": [
+        "${workspaceFolder}/dist/**/*.js"
+      ],
+      "sourceMaps": true,
       "resolveSourceMapLocations": [
         "${workspaceFolder}/**",
         "!**/node_modules/**",
