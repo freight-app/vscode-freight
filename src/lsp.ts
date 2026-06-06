@@ -54,14 +54,36 @@ function findInPath(cmd: string, augmentedPath: string): string | undefined {
   return undefined;
 }
 
+// Collect candidate root directories to look for dev-built freight binaries.
+// Tries (in order):
+//   - VS Code workspace folders
+//   - Extension directory walked upward (handles dev mode where extension
+//     lives inside the freight-workspace repo tree)
+function collectSearchRoots(extensionPath: string): string[] {
+  const roots: string[] = [];
+  for (const folder of vscode.workspace.workspaceFolders || []) {
+    roots.push(folder.uri.fsPath);
+  }
+  // Walk up from the extension directory: editors/vscode-freight is two
+  // levels inside the workspace root in a typical freight checkout.
+  let dir = extensionPath;
+  for (let i = 0; i < 4; i++) {
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+    if (!roots.includes(dir)) roots.push(dir);
+  }
+  return roots;
+}
+
 // Resolve the freight binary.  Priority:
 //   1. Configured executablePath if it's an absolute / ~-expanded path
 //   2. Augmented PATH search for a bare name
-//   3. Workspace target/debug/freight  (dev builds of freight itself)
-//   4. Workspace target/release/freight
+//   3. target/debug/<name> inside each workspace / ancestor directory
+//   4. target/release/<name> inside each workspace / ancestor directory
 // Returns the resolved path, or the original string if nothing is found so
 // the spawn attempt can still fail with a meaningful ENOENT message.
-function resolveFreightBinary(configured: string): string {
+function resolveFreightBinary(configured: string, extensionPath: string): string {
   const expanded = resolveExePath(configured);
 
   // Absolute path: use as-is.
@@ -72,11 +94,10 @@ function resolveFreightBinary(configured: string): string {
   const found = findInPath(expanded, env.PATH);
   if (found) return found;
 
-  // Fallback: look for a local dev build in the active workspace.
-  const folders = vscode.workspace.workspaceFolders || [];
-  for (const folder of folders) {
+  // Fallback: look for a local dev build in workspace / ancestor dirs.
+  for (const root of collectSearchRoots(extensionPath)) {
     for (const profile of ["debug", "release"]) {
-      const candidate = path.join(folder.uri.fsPath, "target", profile, expanded);
+      const candidate = path.join(root, "target", profile, expanded);
       if (fs.existsSync(candidate)) return candidate;
     }
   }
@@ -97,7 +118,7 @@ async function startLanguageServer(
     return;
   }
 
-  const freight = resolveFreightBinary(config.get("executablePath", "freight") as string);
+  const freight = resolveFreightBinary(config.get("executablePath", "freight") as string, context.extensionPath);
   const profile = config.get("lsp.profile", "dev") as string;
   const fortls = resolveExePath(config.get("lsp.fortlsPath", "fortls") as string);
   const asmLsp = resolveExePath(config.get("lsp.asmLspPath", "asm-lsp") as string);
