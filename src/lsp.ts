@@ -40,6 +40,9 @@ async function startLanguageServer(
   appendIfChanged(args, "--fortls", config.get("lsp.fortlsPath", "fortls"), "fortls");
   appendIfChanged(args, "--asm-lsp", config.get("lsp.asmLspPath", "asm-lsp"), "asm-lsp");
 
+  for (const extra of config.get<string[]>("lsp.clangdArgs", [])) {
+    args.push(`--clangd-arg=${extra}`);
+  }
   if (!config.get("lsp.enableClangd", true)) args.push("--no-clangd");
   if (!config.get("lsp.enableFortls", true)) args.push("--no-fortls");
   if (!config.get("lsp.enableAsmLsp", true)) args.push("--no-asm-lsp");

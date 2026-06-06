@@ -138,6 +138,12 @@
           "default": "dev",
           "description": "Freight profile used when freight lsp refreshes compile_commands.json."
         },
+        "freight.lsp.clangdArgs": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "description": "Extra flags passed verbatim to clangd (e.g. [\"--hover-style=detailed\"])."
+        },
         "freight.lsp.enableClangd": {
           "type": "boolean",
           "default": true,
