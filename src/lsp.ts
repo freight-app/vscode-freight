@@ -22,7 +22,7 @@ function resolveExePath(exe: string): string {
 
 // VS Code is often launched from a desktop launcher whose PATH is the bare
 // system PATH, missing ~/.cargo/bin and other user-local prefix dirs where
-// `freight` (and fortls/asm-lsp) typically live.  Prepend the common spots.
+// `freight` (and fortls/asm-lsp) typically live.
 function buildEnv(extra: Record<string, string> = {}): Record<string, string> {
   const home = os.homedir();
   const extraDirs = [
@@ -39,6 +39,52 @@ function buildEnv(extra: Record<string, string> = {}): Record<string, string> {
   return { ...(process.env as Record<string, string>), PATH: merged, ...extra };
 }
 
+// Search for a bare command name in the augmented PATH by checking each dir
+// with fs.existsSync — necessary because Node's spawn PATH resolution uses
+// the child process environment, not the parent's, so we can't rely on it
+// to find binaries added via buildEnv.
+function findInPath(cmd: string, augmentedPath: string): string | undefined {
+  if (path.isAbsolute(cmd)) return fs.existsSync(cmd) ? cmd : undefined;
+  for (const dir of augmentedPath.split(path.delimiter)) {
+    const candidate = path.join(dir, cmd);
+    if (fs.existsSync(candidate)) return candidate;
+    // On Windows try .exe; harmless on Linux.
+    if (fs.existsSync(candidate + ".exe")) return candidate + ".exe";
+  }
+  return undefined;
+}
+
+// Resolve the freight binary.  Priority:
+//   1. Configured executablePath if it's an absolute / ~-expanded path
+//   2. Augmented PATH search for a bare name
+//   3. Workspace target/debug/freight  (dev builds of freight itself)
+//   4. Workspace target/release/freight
+// Returns the resolved path, or the original string if nothing is found so
+// the spawn attempt can still fail with a meaningful ENOENT message.
+function resolveFreightBinary(configured: string): string {
+  const expanded = resolveExePath(configured);
+
+  // Absolute path: use as-is.
+  if (path.isAbsolute(expanded)) return expanded;
+
+  // Bare name: search augmented PATH.
+  const env = buildEnv();
+  const found = findInPath(expanded, env.PATH);
+  if (found) return found;
+
+  // Fallback: look for a local dev build in the active workspace.
+  const folders = vscode.workspace.workspaceFolders || [];
+  for (const folder of folders) {
+    for (const profile of ["debug", "release"]) {
+      const candidate = path.join(folder.uri.fsPath, "target", profile, expanded);
+      if (fs.existsSync(candidate)) return candidate;
+    }
+  }
+
+  // Nothing found — return the bare name so spawn produces a clear ENOENT.
+  return expanded;
+}
+
 
 async function startLanguageServer(
   context: import("vscode").ExtensionContext,
@@ -51,7 +97,7 @@ async function startLanguageServer(
     return;
   }
 
-  const freight = resolveExePath(config.get("executablePath", "freight") as string);
+  const freight = resolveFreightBinary(config.get("executablePath", "freight") as string);
   const profile = config.get("lsp.profile", "dev") as string;
   const fortls = resolveExePath(config.get("lsp.fortlsPath", "fortls") as string);
   const asmLsp = resolveExePath(config.get("lsp.asmLspPath", "asm-lsp") as string);
@@ -64,7 +110,8 @@ async function startLanguageServer(
   if (!enableAsmLsp) args.push("--no-asm-lsp");
 
   const extraEnv = logLevel ? { FREIGHT_LOG: logLevel } : {};
-  const serverOptions = { command: freight, args, options: { env: buildEnv(extraEnv) } };
+  const env = buildEnv(extraEnv);
+  const serverOptions = { command: freight, args, options: { env } };
 
   client = new LanguageClient(
     "freight",
@@ -85,7 +132,14 @@ async function startLanguageServer(
   } catch (error) {
     status.refresh("fail");
     const message = error instanceof Error ? error.message : String(error);
-    vscode.window.showWarningMessage(`Could not start freight lsp: ${message}`);
+    vscode.window.showWarningMessage(
+      `Could not start freight lsp (tried: ${freight}): ${message}`,
+      "Set freight path"
+    ).then(choice => {
+      if (choice === "Set freight path") {
+        vscode.commands.executeCommand("workbench.action.openSettings", "freight.executablePath");
+      }
+    });
   }
 }
 
