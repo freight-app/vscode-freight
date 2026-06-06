@@ -39,10 +39,10 @@
   ],
   "main": "./dist/extension.js",
   "scripts": {
-    "compile": "bun build src/extension.ts --target=node --format=cjs --sourcemap=linked --external vscode --external vscode-languageclient/node --outdir dist",
-    "watch": "bun build src/extension.ts --target=node --format=cjs --sourcemap=linked --external vscode --external vscode-languageclient/node --outdir dist --watch",
-    "check": "bun build src/extension.ts --target=node --format=cjs --external vscode --external vscode-languageclient/node --outdir /tmp/vscode-freight-check",
-    "test": "bun build src/extension.ts --target=node --format=cjs --external vscode --external vscode-languageclient/node --outdir /tmp/vscode-freight-test && FREIGHT_EXTENSION_TEST_ENTRY=/tmp/vscode-freight-test/extension.js node tests/dap-config.test.js",
+    "compile": "bun build src/extension.ts --target=node --format=cjs --sourcemap=linked --external vscode --outdir dist",
+    "watch": "bun build src/extension.ts --target=node --format=cjs --sourcemap=linked --external vscode --outdir dist --watch",
+    "check": "bun build src/extension.ts --target=node --format=cjs --external vscode --outdir /tmp/vscode-freight-check",
+    "test": "bun build src/extension.ts --target=node --format=cjs --external vscode --outdir /tmp/vscode-freight-test && FREIGHT_EXTENSION_TEST_ENTRY=/tmp/vscode-freight-test/extension.js node tests/dap-config.test.js",
     "package": "bun run compile"
   },
   "contributes": {
