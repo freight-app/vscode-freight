@@ -7,11 +7,10 @@ This extension wires VS Code to Freight projects.
 - `freight.toml` language contribution and TextMate highlighting.
 - `freight lsp` client for manifest diagnostics, completion, hover, signature
   help, and source LSP passthroughs.
-- First-class **C/C++ language support** served by Freight's built-in clang
-  bridge (no separate clangd required): hover, go-to-definition, completion,
-  signature help, inlay hints, diagnostics, document symbols (outline & "Go to
-  Symbol"), folding (including comment blocks), references, document highlight,
-  and semantic highlighting.
+- **C/C++ language support** through `freight lsp` — hover, go-to-definition,
+  completion, signature help, document symbols, folding, references, highlight,
+  and semantic highlighting. Served by `clangd` by default; an experimental
+  in-process clang bridge can be enabled with `freight.lsp.useClangBridge`.
 - Freight task provider for build, run, test, fetch, clean, and compile commands.
 - Run and Debug panel configurations for Freight workflows.
 - Status bar entry with a quick compile database command.

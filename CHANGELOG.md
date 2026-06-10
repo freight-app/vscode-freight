@@ -2,16 +2,11 @@
 
 ## 0.2.0
 
-- C/C++ language features now served by Freight's built-in clang bridge (via
-  `freight lsp`), no separate clangd required:
-  - Document symbols (Outline view & "Go to Symbol in File").
-  - Folding ranges, including multi-line comment blocks and statement bodies.
-  - Find All References and document highlight (read/write aware).
-  - Semantic highlighting (namespaces, types, functions, methods, properties,
-    variables, parameters, enum members, macros — including type references and
-    template-parameter uses).
-- These complement the existing hover, go-to-definition, completion, signature
-  help, inlay hints, and diagnostics.
+- C/C++ document symbols, folding, references, document highlight, and semantic
+  highlighting now flow through `freight lsp` (served by `clangd` by default).
+- New experimental setting `freight.lsp.useClangBridge` (default off): route
+  those C/C++ features to Freight's in-process clang bridge instead of clangd.
+  Off while the bridge matures — `clangd` remains the reliable path.
 
 ## 0.1.0
 

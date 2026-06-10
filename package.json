@@ -138,6 +138,11 @@
           "default": "dev",
           "description": "Freight profile used when freight lsp refreshes compile_commands.json."
         },
+        "freight.lsp.useClangBridge": {
+          "type": "boolean",
+          "default": false,
+          "description": "Experimental: use Freight's in-process clang bridge to serve C/C++ language features (hover, go-to-definition, completion, document symbols, folding, references, highlight, semantic tokens) instead of clangd. Off by default while the bridge matures; clangd is the reliable path."
+        },
         "freight.lsp.clangdArgs": {
           "type": "array",
           "items": { "type": "string" },

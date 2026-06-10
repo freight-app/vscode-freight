@@ -135,9 +135,15 @@ async function startLanguageServer(
 
   const profile = config.get("lsp.profile", "dev") as string;
   const logLevel = config.get("lsp.logLevel", "") as string;
+  // Off by default: clangd serves C/C++. Opt in to Freight's in-process clang
+  // bridge for those features (experimental while it matures).
+  const useClangBridge = config.get("lsp.useClangBridge", false) as boolean;
 
   // fortls and asm-lsp are not yet implemented — always disabled.
   const args = ["lsp", "--profile", profile, "--no-fortls", "--no-asm-lsp"];
+  if (useClangBridge) {
+    args.push("--use-clang-bridge");
+  }
 
   const extraEnv: Record<string, string> = logLevel ? { FREIGHT_LOG: logLevel } : {};
   const env = buildEnv(extraEnv);
